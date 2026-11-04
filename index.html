@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GlazeCorp Live Break-Even & Decay Rate Dashboard</title>
+  <title>GlazeCorp Live Strategy Auctions & Mining Break-Even Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -34,11 +34,11 @@
         <div class="flex items-center gap-2.5">
           <span class="w-3 h-3 rounded-full bg-emerald-500 pulse-dot"></span>
           <h1 class="text-lg md:text-xl font-bold text-[var(--foreground)]">
-            رادار التعدين ونقطة التعادل الديناميكية (Decay vs Mining Break-Even) — 26 توكن
+            رادار GlazeCorp الحي: مزادات الاستراتيجيات (Atomic Arbitrage) + تعدين التوكنات (26 عملة)
           </h1>
         </div>
         <p class="text-xs md:text-sm text-[var(--muted-foreground)] mt-1">
-          يدمج سرعة نزول السعر فـ الدقيقة (<span class="mono-num text-rose-500">-Cash/min</span>) مع سرعة إنتاج التوكنات فـ الدقيقة (<span class="mono-num text-emerald-500">+Tokens/min</span>) باش يحسب ليك شحال من دقيقة كتبقى رابح من اللحظة اللي كتدخل فيها!
+          يجمع ليك فـ شاشة وحدة: <b>1) تعمير مزادات الاستراتيجيات (ربح فوري Atomic بلا انتظار)</b> + <b>2) رادار التعدين ونقطة التعادل بالثانية</b>.
         </p>
       </div>
 
@@ -56,37 +56,54 @@
         </button>
       </div>
     </div>
+  </div>
 
-    <!-- Formula Explanation Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[var(--border)] text-xs">
-      <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-3">
-        <div class="font-bold text-rose-500 mb-1">📉 شحال كيهبط السعر والكاش فـ الدقيقة؟</div>
-        <div class="text-[var(--muted-foreground)]">
-          السعر الجديد (<span class="mono-num">2×P_in</span>) كينزل بـ <span class="mono-num font-bold text-[var(--foreground)]">P_in / 30</span> فـ الدقيقة، والـ 80% ديال الكاش اللي غترجع ليك كتنقص بـ <span class="mono-num font-bold text-rose-500">-2.67% من P_in فـ الدقيقة</span>.
+  <!-- SECTION 1: LIVE STRATEGY AUCTIONS RADAR (FROM USER SCREENSHOT 5.3) -->
+  <div class="bg-[var(--card)] border border-emerald-500/40 rounded-xl p-4 md:p-5 shadow-sm mb-5">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">القسم 5.3 • Atomic Arbitrage</span>
+          <h2 class="text-base md:text-lg font-bold text-[var(--foreground)]">
+            تعمير المزادات ديال الاستراتيجيات (WSM Strategy Auctions) — تحديث حي كل ثانية!
+          </h2>
         </div>
+        <p class="text-xs text-[var(--muted-foreground)] mt-1">
+          كل استراتيجية عندها <b>كيس ديال الـ USDG كيكبر كل ثانية</b> (من توزيع <span class="mono-num text-emerald-400 font-bold" id="lblStreamDay">$1,918.86/day</span> حتى لـ 11 نونبر • باقي <span class="mono-num text-sky-400 font-bold" id="lblStreamRem">$13,241</span>)، وكتطلب الأصل ديالها بثمن كينزل لـ 0 فـ 24 ساعة. ملي يولي <b>الكيس USDG &gt; تكلفة الأصل ($)</b>، التعمير كيعطيك الفرق ربح صافي فـ البلاصة (Atomic) بلا ما تسنى حتى واحد!
+        </p>
       </div>
-      <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-3">
-        <div class="font-bold text-emerald-500 mb-1">📈 شحال كيزيد التعدين فـ الدقيقة؟</div>
-        <div class="text-[var(--muted-foreground)]">
-          فـ نفس الدقيقة اللي الكاش كينزل فيها، نتا كتجمع توكنات قيمتها الصافية (بعد الـ Slippage) هي <span class="mono-num font-bold text-emerald-500">+RealTokens/min</span> كتعوض ليك داك النزول!
-        </div>
-      </div>
-      <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-3">
-        <div class="font-bold text-sky-500 mb-1">⚖️ نافذة التعادل الحقيقية (Break-Even Window t_BE):</div>
-        <div class="text-[var(--muted-foreground)]">
-          كتبدا رابح <span class="mono-num text-emerald-500 font-bold">+60%</span> فـ الدقيقة 0، وكتبقى رابح ما دام <span class="mono-num">Cash(t) + Tokens(t) &ge; P_in</span>. إلا كان <span class="mono-num font-bold text-emerald-500">t_BE = 60m</span> راك رابح فـ كاع الـ 60 دقيقة 100%!
-        </div>
-      </div>
+      <a href="https://www.glazecorp.io/coins/0x4aef7f76e2ce208f68e6646c385feb8843aa34a0/auctions" target="_blank"
+         class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg shrink-0 text-center">
+        فتح صفحة المزادات WSM ↗
+      </a>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-right border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--border)] bg-[var(--background)] text-xs text-[var(--muted-foreground)]">
+            <th class="py-2.5 px-3 font-semibold">الاستراتيجية</th>
+            <th class="py-2.5 px-3 font-semibold">كتطلب دابا (الكمية)</th>
+            <th class="py-2.5 px-3 font-semibold">التكلفة دابا (≈ $)</th>
+            <th class="py-2.5 px-3 font-semibold">الكيس USDG دابا</th>
+            <th class="py-2.5 px-3 font-semibold">الكيس كيكبر (+/ساعة)</th>
+            <th class="py-2.5 px-3 font-semibold">الثمن كينزل (-/ساعة)</th>
+            <th class="py-2.5 px-3 font-semibold">الفرق دابا (Pot - Cost)</th>
+            <th class="py-2.5 px-3 font-semibold">غادي تولي مربحة من بعد ≈</th>
+          </tr>
+        </thead>
+        <tbody id="strategyAuctionsBody" class="divide-y divide-[var(--border)] text-xs">
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Inspector & Filter Bar -->
+  <!-- SECTION 2: MINING RADAR CONTROLS & INSPECTOR -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-    <!-- Filter & Interactive Time Tester -->
     <div class="lg:col-span-6 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm flex flex-col justify-between">
       <div>
         <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-bold text-[var(--foreground)]">⏱️ حرك المؤشر باش تشوف ربحك فـ أي دقيقة (0 حتى لـ 60):</span>
+          <span class="text-sm font-bold text-[var(--foreground)]">⏱️ رادار التعدين: حرك المؤشر باش تشوف ربحك فـ أي دقيقة (0 حتى لـ 60):</span>
           <span id="lblTestMin" class="text-xs font-bold px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-500 mono-num">الدقيقة 0 (فوراً!)</span>
         </div>
         <input id="rngTestMin" type="range" min="0" max="60" value="0" step="1"
@@ -132,7 +149,7 @@
     </div>
   </div>
 
-  <!-- Main Live Table -->
+  <!-- Main Live Mining Table -->
   <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-right border-collapse">
@@ -158,8 +175,94 @@
     const SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_cmtlwofwa17hz01u26caa9ev9/subgraphs/glazecorp-zero-rpc/0.3.0/gn";
     const API_URL = "/api/tokens";
 
+    let STRATEGY_AUCTIONS = {
+      fund_symbol: "WSM",
+      fund_coin: "0x4aef7f76e2ce208f68e6646c385feb8843aa34a0",
+      daily_usdg_rate: 1918.86,
+      hourly_usdg_rate: 79.95,
+      remaining_usdg: 13241.01,
+      period_finish: 1794422827,
+      strategies: [
+        {
+          strategy: "0xda9a65b9470eae93618162e26424f9f9d59cc94d",
+          symbol: "SPY",
+          token_name: "SPDR S&P 500 ETF Trust • Robinhood Token",
+          p_usd: 767.748,
+          init_amt: 0.1321050657,
+          curr_amt: 0.059789774,
+          started_at: 1793779331,
+          duration_sec: 86400,
+          pot_usdg: 41.64,
+          snapshot_ts: 1793826600,
+          grow_usd_hr: 4.97,
+          drop_amt_hr: 0.005504377,
+          drop_usd_hr: 4.23
+        },
+        {
+          strategy: "0x4d57349cd0ffcecc2f4aa9ddafa740ea6df4b4ce",
+          symbol: "NVDA",
+          token_name: "NVIDIA • Robinhood Token",
+          p_usd: 200.418,
+          init_amt: 0.4932619727,
+          curr_amt: 0.254126969,
+          started_at: 1793784740,
+          duration_sec: 86400,
+          pot_usdg: 37.98,
+          snapshot_ts: 1793826600,
+          grow_usd_hr: 4.98,
+          drop_amt_hr: 0.020552582,
+          drop_usd_hr: 4.12
+        },
+        {
+          strategy: "0x07ce0b01318135464cfcaeb109770ebc056098ff",
+          symbol: "LP (WSM/USDG)",
+          token_name: "FullRange-WSM-USDG-20000-0",
+          p_usd: 81686.67,
+          init_amt: 0.0035355339,
+          curr_amt: 0.0030067997,
+          started_at: 1793813706,
+          duration_sec: 86400,
+          pot_usdg: 152.68,
+          snapshot_ts: 1793826600,
+          grow_usd_hr: 49.76,
+          drop_amt_hr: 0.0001473139,
+          drop_usd_hr: 12.03
+        },
+        {
+          strategy: "0x12cf9b3e62e961e864d16aaaf30484dd36fc3009",
+          symbol: "WSM",
+          token_name: "Wall Street Mining Co",
+          p_usd: 0.00166818,
+          init_amt: 37037.037037,
+          curr_amt: 30290.20919,
+          started_at: 1793810888,
+          duration_sec: 86400,
+          pot_usdg: 28.43,
+          snapshot_ts: 1793826600,
+          grow_usd_hr: 8.10,
+          drop_amt_hr: 1543.209876,
+          drop_usd_hr: 2.57
+        },
+        {
+          strategy: "0x5c7741c83551f51939b0c5e1c3a4923d9263fd25",
+          symbol: "ROOT",
+          token_name: "Root",
+          p_usd: 0.0,
+          init_amt: 202.020202,
+          curr_amt: 148.035915,
+          started_at: 1793803539,
+          duration_sec: 86400,
+          pot_usdg: 56.68,
+          snapshot_ts: 1793826600,
+          grow_usd_hr: 12.15,
+          drop_amt_hr: 8.417508,
+          drop_usd_hr: 0.0
+        }
+      ]
+    };
+
     let TOKENS_DATA = [
-      {"coin":"0x4aef7f76e2ce208f68e6646c385feb8843aa34a0","name":"Wall Street Mining Co","symbol":"WSM","p_token":0.00195489847246052,"liq_usdg":2745.913126,"r_usdg":1372.956563,"treasury_usdg":943.305799,"eff_supply":17265957.53729075,"vol24_usdg":91302.507458,"swaps24":1168,"takeovers24":49,"init_price_usdg":1742.873632,"auction_started_at":1793817945,"tps":64.0,"last_paid_usdg":871.436816,"miner":"0x03ad9259a227e44886c6b1c1833c2e79379b976a","message":"The Market Is The Mine","epoch":113,"swap_fee":0.02},
+      {"coin":"0x4aef7f76e2ce208f68e6646c385feb8843aa34a0","name":"Wall Street Mining Co","symbol":"WSM","p_token":0.00166818,"liq_usdg":2536.56,"r_usdg":1268.28,"treasury_usdg":871.39,"eff_supply":17711397.5,"vol24_usdg":47487.56,"swaps24":1140,"takeovers24":49,"init_price_usdg":1644.75,"auction_started_at":1793825248,"tps":64.0,"last_paid_usdg":822.38,"miner":"0xfb38328be66e4924b81fb9eeee74033b44bc072c","message":"The Market Is The Mine","epoch":117,"swap_fee":0.02},
       {"coin":"0x35e21e50f547396efc8b6fd040af1c32b4d1e74a","name":"Kitty","symbol":"KITTY","p_token":1.646730998377394e-06,"liq_usdg":44.869332,"r_usdg":22.434666,"treasury_usdg":12.430743,"eff_supply":121368191.99999999,"vol24_usdg":25.621887,"swaps24":7,"takeovers24":44,"init_price_usdg":1.0,"auction_started_at":1793818082,"tps":64.0,"last_paid_usdg":0.395834,"miner":"0xd0b86773de046546d5c1977385cf9a67b8cfeeb8","message":"","epoch":96,"swap_fee":0.01},
       {"coin":"0x5b69f1e127cb8cbe0b3880e8c1411185ae719e37","name":"Heeshilio","symbol":"HEESH","p_token":2.089150077477478e-05,"liq_usdg":28.907784,"r_usdg":14.453892,"treasury_usdg":0.0,"eff_supply":2364616.0,"vol24_usdg":422.002507,"swaps24":20,"takeovers24":25,"init_price_usdg":2.46226,"auction_started_at":1793818432,"tps":64.0,"last_paid_usdg":1.23113,"miner":"0x93b3e950ed44647599f9ad83540a08d76e1568fb","message":"majn for moneysss","epoch":26,"swap_fee":0.01},
       {"coin":"0x546f0500bd317db99bcba43398949e50d1b17c44","name":"BTC","symbol":"BTC","p_token":1.8767765558399323e-05,"liq_usdg":20.54021,"r_usdg":10.270105,"treasury_usdg":17.736476,"eff_supply":1288914.0999999996,"vol24_usdg":3.186391,"swaps24":5,"takeovers24":26,"init_price_usdg":1.0,"auction_started_at":1793817703,"tps":3.97,"last_paid_usdg":0.158612,"miner":"0x54393e990b8ce14df3770dc586e823d427240af1","message":"First of all time","epoch":66,"swap_fee":0.01},
@@ -191,13 +294,89 @@
     let testMinutes = 0;
     let selectedCoinAddr = "0x5b69f1e127cb8cbe0b3880e8c1411185ae719e37";
 
+    function renderStrategyAuctions(nowSec) {
+      if (!STRATEGY_AUCTIONS || !STRATEGY_AUCTIONS.strategies) return;
+      const tbody = document.getElementById('strategyAuctionsBody');
+      if (!tbody) return;
+
+      document.getElementById('lblStreamDay').textContent = `$${(STRATEGY_AUCTIONS.daily_usdg_rate || 1918.86).toFixed(0)}/يوم`;
+      document.getElementById('lblStreamRem').textContent = `$${(STRATEGY_AUCTIONS.remaining_usdg || 13241).toFixed(0)} USDG`;
+
+      const rows = STRATEGY_AUCTIONS.strategies.map(s => {
+        const dtSnap = Math.max(0, nowSec - (s.snapshot_ts || nowSec));
+        const elapsedEpoch = Math.max(0, nowSec - s.started_at);
+        const remEpoch = Math.max(0, s.duration_sec - elapsedEpoch);
+
+        const reqAmt = elapsedEpoch >= s.duration_sec ? 0.0 : (s.init_amt * (remEpoch / s.duration_sec));
+        const livePot = s.pot_usdg + (s.grow_usd_hr / 3600.0) * dtSnap;
+        const hasPrice = s.p_usd > 0;
+        const liveCost = hasPrice ? (reqAmt * s.p_usd) : null;
+        const diffUsd = hasPrice ? (livePot - liveCost) : null;
+
+        let hrsLeft = null;
+        if (hasPrice) {
+          if (diffUsd >= 0) hrsLeft = 0.0;
+          else {
+            const closeSpeedHr = s.grow_usd_hr + s.drop_usd_hr;
+            hrsLeft = closeSpeedHr > 0 ? ((liveCost - livePot) / closeSpeedHr) : 999;
+          }
+        }
+        return { ...s, reqAmt, livePot, hasPrice, liveCost, diffUsd, hrsLeft };
+      });
+
+      // Sort by closest to profitable first
+      rows.sort((a, b) => {
+        if (a.hrsLeft === null) return 1;
+        if (b.hrsLeft === null) return -1;
+        return a.hrsLeft - b.hrsLeft;
+      });
+
+      tbody.innerHTML = rows.map(r => {
+        const amtStr = r.reqAmt >= 100
+          ? r.reqAmt.toLocaleString('en-US', { maximumFractionDigits: 1 })
+          : (r.reqAmt >= 1 ? r.reqAmt.toFixed(2) : r.reqAmt.toFixed(6));
+
+        const costStr = r.hasPrice ? `$${r.liveCost.toFixed(2)}` : '<span class="text-[var(--muted-foreground)]">بلا ثمن</span>';
+        const dropStr = r.hasPrice ? `-$${r.drop_usd_hr.toFixed(2)}/ساعة` : 'ما معروفش';
+
+        let diffHtml = '<span class="text-[var(--muted-foreground)]">—</span>';
+        let etaHtml = '<span class="text-[var(--muted-foreground)]">ما معروفش</span>';
+
+        if (r.hasPrice) {
+          const isProf = r.diffUsd >= 0;
+          diffHtml = `<span class="mono-num font-bold ${isProf ? 'text-emerald-400' : 'text-amber-400'}">${isProf ? '+' : ''}$${r.diffUsd.toFixed(2)}</span>`;
+          if (isProf) {
+            etaHtml = `<span class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40">🟢 مربحة دابا! عَمّر المزاد ↗</span>`;
+          } else {
+            const totalMins = Math.ceil(r.hrsLeft * 60);
+            const h = Math.floor(totalMins / 60);
+            const m = totalMins % 60;
+            const timeBadge = r.hrsLeft < 0.75 ? 'text-emerald-400 font-bold' : 'text-sky-400 font-semibold';
+            etaHtml = `<span class="${timeBadge} mono-num">${r.hrsLeft.toFixed(2)} ساعة (${h > 0 ? h + 'س و ' : ''}${m} د)</span>`;
+          }
+        }
+
+        return `
+          <tr class="hover:bg-[var(--background)]/60 transition">
+            <td class="py-2.5 px-3 font-bold">${r.symbol}</td>
+            <td class="py-2.5 px-3 mono-num">${r.symbol.split(' ')[0]} ${amtStr}</td>
+            <td class="py-2.5 px-3 mono-num font-semibold">${costStr}</td>
+            <td class="py-2.5 px-3 mono-num font-bold text-emerald-400">$${r.livePot.toFixed(2)}</td>
+            <td class="py-2.5 px-3 mono-num text-emerald-500">+$${r.grow_usd_hr.toFixed(1)}/ساعة</td>
+            <td class="py-2.5 px-3 mono-num text-rose-400">${dropStr}</td>
+            <td class="py-2.5 px-3">${diffHtml}</td>
+            <td class="py-2.5 px-3">${etaHtml}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     function realizedDexUsdg(paperUsd, rUsdg, swapFee = 0.01) {
       if (rUsdg <= 0 || paperUsd <= 0) return 0;
       const eff = paperUsd * (1.0 - swapFee);
       return (rUsdg * eff) / (rUsdg + eff);
     }
 
-    // Unified On-Chain Profit at any replacement minute `m` (0 <= m <= 60)
     function profitAtMinute(m, p_in, tps, p_token, r_usdg, fee, navPerToken) {
       const nextStartPrice = Math.max(2.0 * p_in, 1.0);
       const p_next_at_m = m >= 60 ? 0.0 : nextStartPrice * (1.0 - (m / 60.0));
@@ -212,7 +391,6 @@
       return { p_next_at_m, refund_usdg, paper_tok, real_tok, net_profit, roi };
     }
 
-    // Solves for the exact cutoff minute t_BE in [0, 60] where CashRefund(t) + RealTokens(t) == P_in
     function findBreakEvenCutoffMinute(p_in, tps, p_token, r_usdg, fee, navPerToken) {
       if (p_in <= 0) return 60.0;
       const end60 = profitAtMinute(60, p_in, tps, p_token, r_usdg, fee, navPerToken);
@@ -365,6 +543,8 @@
 
     function renderDashboard() {
       const nowSec = Math.floor(Date.now() / 1000);
+      renderStrategyAuctions(nowSec);
+
       const computed = TOKENS_DATA.map(t => computeMetrics(t, nowSec));
 
       const inspected = computed.find(x => x.coin.toLowerCase() === selectedCoinAddr) || computed[0];
@@ -465,58 +645,18 @@
           const jApi = await rApi.json();
           if (jApi.tokens && jApi.tokens.length > 0) {
             TOKENS_DATA = jApi.tokens;
-            document.getElementById('lastSyncTime').textContent = new Date().toTimeString().split(' ')[0];
-            statusEl.textContent = "LIVE • On-Chain";
-            renderDashboard();
-            return;
           }
+          if (jApi.strategy_auctions && jApi.strategy_auctions.strategies) {
+            STRATEGY_AUCTIONS = jApi.strategy_auctions;
+          }
+          document.getElementById('lastSyncTime').textContent = new Date().toTimeString().split(' ')[0];
+          statusEl.textContent = "LIVE • On-Chain";
+          renderDashboard();
+          return;
         }
       } catch (_) {}
 
-      // Fallback: Direct Goldsky Subgraph query from browser
-      try {
-        const query = {
-          query: `{
-            fundInstances(first: 100, orderBy: liquidityUsdgRaw, orderDirection: desc) {
-              id name symbol coin swapFee initialTpsRaw priceUsdgWad liquidityUsdgRaw
-              pool { quoteIsUsdg reserveBaseRaw reserveQuoteRaw }
-              miningSlots { epoch initialPriceRaw auctionStartedAt tpsRaw lastPriceRaw }
-            }
-          }`
-        };
-        const rSg = await fetch(SUBGRAPH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(query)
-        });
-        if (rSg.ok) {
-          const jSg = await rSg.json();
-          const funds = (jSg.data && jSg.data.fundInstances) || [];
-          const byAddr = {};
-          TOKENS_DATA.forEach(x => { byAddr[x.coin.toLowerCase()] = x; });
-          funds.forEach(f => {
-            const addr = (f.coin || f.id || '').toLowerCase();
-            const slot = (f.miningSlots && f.miningSlots[0]) || {};
-            const pool = f.pool || {};
-            const prev = byAddr[addr] || { coin: f.coin || f.id, name: f.name, symbol: f.symbol, liq_usdg: 0, r_usdg: 0, treasury_usdg: 0, eff_supply: 0 };
-            if (slot.initialPriceRaw !== undefined) prev.init_price_usdg = Number(slot.initialPriceRaw) / 1e6;
-            if (slot.auctionStartedAt !== undefined) prev.auction_started_at = Number(slot.auctionStartedAt);
-            if (slot.tpsRaw !== undefined && Number(slot.tpsRaw) > 0) prev.tps = Number(slot.tpsRaw) / 1e18;
-            const rBase = Number(pool.reserveBaseRaw || 0) / 1e18;
-            const rQuote = Number(pool.reserveQuoteRaw || 0) / 1e6;
-            if (pool.quoteIsUsdg && rBase > 0 && rQuote > 0) {
-              prev.p_token = rQuote / rBase;
-              prev.liq_usdg = rQuote * 2.0;
-              prev.r_usdg = rQuote;
-            }
-            byAddr[addr] = prev;
-          });
-          document.getElementById('lastSyncTime').textContent = new Date().toTimeString().split(' ')[0];
-          statusEl.textContent = "LIVE • Subgraph";
-        }
-      } catch (_) {
-        statusEl.textContent = "LIVE • Clock Mode";
-      }
+      statusEl.textContent = "LIVE • Clock Mode";
       renderDashboard();
     }
 

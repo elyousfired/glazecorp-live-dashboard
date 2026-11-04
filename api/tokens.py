@@ -3,9 +3,11 @@ import urllib.request
 import json
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_cmtlwofwa17hz01u26caa9ev9/subgraphs/glazecorp-zero-rpc/0.3.0/gn"
 EXPLORE_URL = "https://www.glazecorp.io/explore"
+WSM_AUCTIONS_URL = "https://www.glazecorp.io/coins/0x4aef7f76e2ce208f68e6646c385feb8843aa34a0/auctions"
 
 
 def parse_bigint(val):
@@ -21,7 +23,7 @@ def parse_bigint(val):
         return 0
 
 
-def get_merged_tokens():
+def fetch_explore():
     explore_map = {}
     try:
         req_exp = urllib.request.Request(EXPLORE_URL, headers={"User-Agent": "Mozilla/5.0"})
@@ -36,7 +38,10 @@ def get_merged_tokens():
                 pass
     except Exception:
         pass
+    return explore_map
 
+
+def fetch_subgraph():
     query = {
         "query": """
         {
@@ -89,7 +94,106 @@ def get_merged_tokens():
         headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
     )
     resp = json.loads(urllib.request.urlopen(req_sg, timeout=10).read().decode("utf-8"))
-    funds = resp.get("data", {}).get("fundInstances", [])
+    return resp.get("data", {}).get("fundInstances", [])
+
+
+def fetch_wsm_strategy_auctions():
+    try:
+        req = urllib.request.Request(WSM_AUCTIONS_URL, headers={"User-Agent": "Mozilla/5.0"})
+        html = urllib.request.urlopen(req, timeout=10).read().decode("utf-8", errors="ignore")
+        pushes = re.findall(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)', html)
+        full_text = "".join(pushes).encode("utf-8").decode("unicode_escape", errors="ignore")
+
+        prices = {}
+        for m in re.finditer(r'"(0x[0-9a-fA-F]{40})":\{"status":"available".*?"priceUsd":"([0-9.]+)"', full_text):
+            prices[m.group(1).lower()] = float(m.group(2))
+
+        m_lp = re.search(r'"lpPriceUsdgWad":"\$n(\d+)"', full_text)
+        lp_price = int(m_lp.group(1)) / 1e6 if m_lp else 81686.67
+        m_wsm = re.search(r'"priceUsdgE36":"\$n(\d+)"', full_text)
+        wsm_price = int(m_wsm.group(1)) / 1e24 if m_wsm else 0.001668
+
+        prices["0xce5219cb417cddf4388ced8699a7cb8923ec914b"] = lp_price
+        prices["0x4aef7f76e2ce208f68e6646c385feb8843aa34a0"] = wsm_price
+
+        m_rate = re.search(r'"revenueRateRaw":"\$n(\d+)"', full_text)
+        rev_rate_usdg_per_sec = int(m_rate.group(1)) / 1e6 if m_rate else 0.022209
+        m_rem = re.search(r'"remainingRevenueRaw":"\$n(\d+)"', full_text)
+        rem_usdg = int(m_rem.group(1)) / 1e6 if m_rem else 13241.0
+        m_fin = re.search(r'"revenuePeriodFinish":"\$n(\d+)"', full_text)
+        period_finish = int(m_fin.group(1)) if m_fin else 1794422827
+        m_tot_sig = re.search(r'"totalSignalWeightRaw":"\$n(\d+)"', full_text)
+        tot_signal = int(m_tot_sig.group(1)) / 1e18 if m_tot_sig else 2567.3
+
+        idx_q4 = full_text.rfind('[{"address":"0x07ce0B01318135464CFcAeb109770eBC056098Ff"')
+        if idx_q4 == -1:
+            return None
+
+        strats, _ = json.JSONDecoder().raw_decode(full_text[idx_q4:])
+        now_ts = int(time.time())
+        auctions_out = []
+
+        for s in strats:
+            pt = s.get("paymentToken") or {}
+            raw_sym = pt.get("symbol") or "???"
+            display_sym = "LP (WSM/USDG)" if "FullRange-WSM-USDG" in raw_sym else raw_sym
+            dec = int(pt.get("decimals") or 18)
+            pt_addr = (pt.get("address") or "").lower()
+            p_usd = prices.get(pt_addr, 0.0)
+
+            init_amt = parse_bigint(s.get("initialPriceRaw")) / (10**dec)
+            curr_amt = parse_bigint(s.get("currentPriceRaw")) / (10**dec)
+            started_at = parse_bigint(s.get("epochStartedAt"))
+            dur_sec = parse_bigint(s.get("epochDuration")) or 86400
+            held_usdg = parse_bigint(s.get("heldRevenueRaw")) / 1e6
+            sig = parse_bigint(s.get("totalSignalRaw")) / 1e18
+
+            share = (sig / tot_signal) if tot_signal > 0 else 0.0
+            grow_hr = rev_rate_usdg_per_sec * 3600.0 * share
+            drop_amt_hr = init_amt / (dur_sec / 3600.0)
+            drop_usd_hr = drop_amt_hr * p_usd
+
+            auctions_out.append({
+                "strategy": s.get("address"),
+                "symbol": display_sym,
+                "raw_symbol": raw_sym,
+                "token_name": pt.get("name") or display_sym,
+                "token_address": pt.get("address"),
+                "p_usd": p_usd,
+                "init_amt": init_amt,
+                "curr_amt": curr_amt,
+                "started_at": started_at,
+                "duration_sec": dur_sec,
+                "pot_usdg": held_usdg,
+                "snapshot_ts": now_ts,
+                "signal_share": share,
+                "grow_usd_hr": grow_hr,
+                "drop_amt_hr": drop_amt_hr,
+                "drop_usd_hr": drop_usd_hr
+            })
+
+        return {
+            "fund_symbol": "WSM",
+            "fund_coin": "0x4aef7f76e2ce208f68e6646c385feb8843aa34a0",
+            "daily_usdg_rate": rev_rate_usdg_per_sec * 86400.0,
+            "hourly_usdg_rate": rev_rate_usdg_per_sec * 3600.0,
+            "remaining_usdg": rem_usdg,
+            "period_finish": period_finish,
+            "strategies": auctions_out
+        }
+    except Exception:
+        return None
+
+
+def get_full_live_payload():
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        fut_exp = ex.submit(fetch_explore)
+        fut_sg = ex.submit(fetch_subgraph)
+        fut_wsm = ex.submit(fetch_wsm_strategy_auctions)
+
+        explore_map = fut_exp.result()
+        funds = fut_sg.result()
+        wsm_auctions = fut_wsm.result()
 
     merged = []
     for f in funds:
@@ -161,7 +265,11 @@ def get_merged_tokens():
         })
 
     merged.sort(key=lambda x: (x["liq_usdg"], x["vol24_usdg"]), reverse=True)
-    return merged
+    return {
+        "timestamp": int(time.time()),
+        "tokens": merged,
+        "strategy_auctions": wsm_auctions
+    }
 
 
 class handler(BaseHTTPRequestHandler):
@@ -174,8 +282,8 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
-            tokens = get_merged_tokens()
-            payload = json.dumps({"timestamp": int(time.time()), "tokens": tokens}).encode("utf-8")
+            data = get_full_live_payload()
+            payload = json.dumps(data).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Access-Control-Allow-Origin", "*")
