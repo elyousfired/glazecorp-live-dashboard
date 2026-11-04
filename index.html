@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GlazeCorp Live Break-Even & Decay Rate Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --background: #0b0f19;
+      --card: #111827;
+      --foreground: #f8fafc;
+      --muted-foreground: #94a3b8;
+      --border: #1e293b;
+      --primary: #10b981;
+      --primary-foreground: #ffffff;
+    }
+    .mono-num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; direction: ltr; display: inline-block; }
+    .pulse-dot { animation: pulseGlow 1.6s infinite ease-in-out; }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.88); }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 md:p-6 select-none">
+
+  <!-- Header & Live Status Bar -->
+  <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 md:p-5 shadow-sm mb-4">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <span class="w-3 h-3 rounded-full bg-emerald-500 pulse-dot"></span>
+          <h1 class="text-lg md:text-xl font-bold text-[var(--foreground)]">
+            رادار التعدين ونقطة التعادل الديناميكية (Decay vs Mining Break-Even) — 26 توكن
+          </h1>
+        </div>
+        <p class="text-xs md:text-sm text-[var(--muted-foreground)] mt-1">
+          يدمج سرعة نزول السعر فـ الدقيقة (<span class="mono-num text-rose-500">-Cash/min</span>) مع سرعة إنتاج التوكنات فـ الدقيقة (<span class="mono-num text-emerald-500">+Tokens/min</span>) باش يحسب ليك شحال من دقيقة كتبقى رابح من اللحظة اللي كتدخل فيها!
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 flex items-center gap-2">
+          <span class="text-[var(--muted-foreground)]">الحالة:</span>
+          <span id="syncStatus" class="font-semibold text-emerald-500 mono-num">LIVE • 1s Tick</span>
+        </div>
+        <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2 flex items-center gap-2">
+          <span class="text-[var(--muted-foreground)]">آخر تحديث:</span>
+          <span id="lastSyncTime" class="font-semibold text-[var(--foreground)] mono-num">--:--:--</span>
+        </div>
+        <button onclick="syncFromNetwork()" class="bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 font-semibold px-3.5 py-2 rounded-lg transition cursor-pointer">
+          تحديث فوري ↻
+        </button>
+      </div>
+    </div>
+
+    <!-- Formula Explanation Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-4 border-t border-[var(--border)] text-xs">
+      <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-3">
+        <div class="font-bold text-rose-500 mb-1">📉 شحال كيهبط السعر والكاش فـ الدقيقة؟</div>
+        <div class="text-[var(--muted-foreground)]">
+          السعر الجديد (<span class="mono-num">2×P_in</span>) كينزل بـ <span class="mono-num font-bold text-[var(--foreground)]">P_in / 30</span> فـ الدقيقة، والـ 80% ديال الكاش اللي غترجع ليك كتنقص بـ <span class="mono-num font-bold text-rose-500">-2.67% من P_in فـ الدقيقة</span>.
+        </div>
+      </div>
+      <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-3">
+        <div class="font-bold text-emerald-500 mb-1">📈 شحال كيزيد التعدين فـ الدقيقة؟</div>
+        <div class="text-[var(--muted-foreground)]">
+          فـ نفس الدقيقة اللي الكاش كينزل فيها، نتا كتجمع توكنات قيمتها الصافية (بعد الـ Slippage) هي <span class="mono-num font-bold text-emerald-500">+RealTokens/min</span> كتعوض ليك داك النزول!
+        </div>
+      </div>
+      <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-3">
+        <div class="font-bold text-sky-500 mb-1">⚖️ نافذة التعادل الحقيقية (Break-Even Window t_BE):</div>
+        <div class="text-[var(--muted-foreground)]">
+          كتبدا رابح <span class="mono-num text-emerald-500 font-bold">+60%</span> فـ الدقيقة 0، وكتبقى رابح ما دام <span class="mono-num">Cash(t) + Tokens(t) &ge; P_in</span>. إلا كان <span class="mono-num font-bold text-emerald-500">t_BE = 60m</span> راك رابح فـ كاع الـ 60 دقيقة 100%!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inspector & Filter Bar -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
+    <!-- Filter & Interactive Time Tester -->
+    <div class="lg:col-span-6 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-bold text-[var(--foreground)]">⏱️ حرك المؤشر باش تشوف ربحك فـ أي دقيقة (0 حتى لـ 60):</span>
+          <span id="lblTestMin" class="text-xs font-bold px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-500 mono-num">الدقيقة 0 (فوراً!)</span>
+        </div>
+        <input id="rngTestMin" type="range" min="0" max="60" value="0" step="1"
+          oninput="updateTestMin(this.value)"
+          class="w-full accent-emerald-500 cursor-pointer" />
+        <div class="flex justify-between text-xs text-[var(--muted-foreground)] mt-1">
+          <button onclick="updateTestMin(0)" class="hover:underline cursor-pointer font-bold text-emerald-500">0 د (+60% كاش)</button>
+          <button onclick="updateTestMin(15)" class="hover:underline cursor-pointer">15 د</button>
+          <button onclick="updateTestMin(22)" class="hover:underline cursor-pointer">22.5 د</button>
+          <button onclick="updateTestMin(30)" class="hover:underline cursor-pointer">30 د (نصف ساعة)</button>
+          <button onclick="updateTestMin(60)" class="hover:underline cursor-pointer text-amber-500 font-semibold">60 د (أسوأ احتمال)</button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-[var(--border)]">
+        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+          <button onclick="setFilter('all')" id="flt-all" class="px-3 py-1.5 rounded-lg font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer">
+            الكل (26)
+          </button>
+          <button onclick="setFilter('zeroluck')" id="flt-zeroluck" class="px-3 py-1.5 rounded-lg font-medium bg-[var(--background)] border border-[var(--border)] cursor-pointer">
+            🟢 مضمون 60/60 دقيقة (بلا زهر)
+          </button>
+          <button onclick="setFilter('liq')" id="flt-liq" class="px-3 py-1.5 rounded-lg font-medium bg-[var(--background)] border border-[var(--border)] cursor-pointer">
+            💧 سيولة حقيقية (&gt;$5)
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input id="inpSearch" type="text" placeholder="قلب على توكن..." oninput="renderDashboard()"
+            class="bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-xs w-36" />
+          <select id="selSort" onchange="renderDashboard()"
+            class="bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs">
+            <option value="liq_desc" selected>الأعلى سيولة (Liquidity)</option>
+            <option value="be_window_desc">الأطول فـ نافذة التعادل (t_BE)</option>
+            <option value="worst_desc">الأعلى ربحاً فـ أسوأ احتمال (60د)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selected Token Full Curve Inspector -->
+    <div class="lg:col-span-6 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm" id="inspectorCard">
+    </div>
+  </div>
+
+  <!-- Main Live Table -->
+  <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-right border-collapse">
+        <thead>
+          <tr class="border-b border-[var(--border)] bg-[var(--background)] text-xs text-[var(--muted-foreground)]">
+            <th class="py-3 px-3 font-semibold"># / التوكن</th>
+            <th class="py-3 px-3 font-semibold">ثمن الدخول الحي (P_in)</th>
+            <th class="py-3 px-3 font-semibold">السيولة (R_USDG)</th>
+            <th class="py-3 px-3 font-semibold">ميزان الدقيقة (نزول الكاش vs إنتاج التوكن)</th>
+            <th class="py-3 px-3 font-semibold">نافذة التعادل الحقيقية (Break-Even Window)</th>
+            <th class="py-3 px-3 font-semibold">ربح الدقيقة 0 / 30 / 60</th>
+            <th class="py-3 px-3 font-semibold">ثمن الأمان 100% (P_safe)</th>
+            <th class="py-3 px-3 font-semibold">القرار والرابط</th>
+          </tr>
+        </thead>
+        <tbody id="tokensTableBody" class="divide-y divide-[var(--border)] text-xs">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const SUBGRAPH_URL = "https://api.goldsky.com/api/public/project_cmtlwofwa17hz01u26caa9ev9/subgraphs/glazecorp-zero-rpc/0.3.0/gn";
+    const API_URL = "/api/tokens";
+
+    let TOKENS_DATA = [
+      {"coin":"0x4aef7f76e2ce208f68e6646c385feb8843aa34a0","name":"Wall Street Mining Co","symbol":"WSM","p_token":0.00195489847246052,"liq_usdg":2745.913126,"r_usdg":1372.956563,"treasury_usdg":943.305799,"eff_supply":17265957.53729075,"vol24_usdg":91302.507458,"swaps24":1168,"takeovers24":49,"init_price_usdg":1742.873632,"auction_started_at":1793817945,"tps":64.0,"last_paid_usdg":871.436816,"miner":"0x03ad9259a227e44886c6b1c1833c2e79379b976a","message":"The Market Is The Mine","epoch":113,"swap_fee":0.02},
+      {"coin":"0x35e21e50f547396efc8b6fd040af1c32b4d1e74a","name":"Kitty","symbol":"KITTY","p_token":1.646730998377394e-06,"liq_usdg":44.869332,"r_usdg":22.434666,"treasury_usdg":12.430743,"eff_supply":121368191.99999999,"vol24_usdg":25.621887,"swaps24":7,"takeovers24":44,"init_price_usdg":1.0,"auction_started_at":1793818082,"tps":64.0,"last_paid_usdg":0.395834,"miner":"0xd0b86773de046546d5c1977385cf9a67b8cfeeb8","message":"","epoch":96,"swap_fee":0.01},
+      {"coin":"0x5b69f1e127cb8cbe0b3880e8c1411185ae719e37","name":"Heeshilio","symbol":"HEESH","p_token":2.089150077477478e-05,"liq_usdg":28.907784,"r_usdg":14.453892,"treasury_usdg":0.0,"eff_supply":2364616.0,"vol24_usdg":422.002507,"swaps24":20,"takeovers24":25,"init_price_usdg":2.46226,"auction_started_at":1793818432,"tps":64.0,"last_paid_usdg":1.23113,"miner":"0x93b3e950ed44647599f9ad83540a08d76e1568fb","message":"majn for moneysss","epoch":26,"swap_fee":0.01},
+      {"coin":"0x546f0500bd317db99bcba43398949e50d1b17c44","name":"BTC","symbol":"BTC","p_token":1.8767765558399323e-05,"liq_usdg":20.54021,"r_usdg":10.270105,"treasury_usdg":17.736476,"eff_supply":1288914.0999999996,"vol24_usdg":3.186391,"swaps24":5,"takeovers24":26,"init_price_usdg":1.0,"auction_started_at":1793817703,"tps":3.97,"last_paid_usdg":0.158612,"miner":"0x54393e990b8ce14df3770dc586e823d427240af1","message":"First of all time","epoch":66,"swap_fee":0.01},
+      {"coin":"0x9b96d19d519694a991b9ffb34e5a200bd8fb8fbb","name":"WSM (V1)","symbol":"WSM-1","p_token":4.0959864931296976e-07,"liq_usdg":12.799978,"r_usdg":6.399989,"treasury_usdg":0.0,"eff_supply":23248000.0,"vol24_usdg":1.004733,"swaps24":35,"takeovers24":23,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":51,"swap_fee":0.01},
+      {"coin":"0xba15ceb4359c7b324f9b4a3c47fd90317777efb4","name":"MAG-7","symbol":"MAG7","p_token":1.165607500843902e-06,"liq_usdg":12.404204,"r_usdg":6.202102,"treasury_usdg":3.585419,"eff_supply":11063340.421624223,"vol24_usdg":18.375172,"swaps24":3,"takeovers24":39,"init_price_usdg":1.0,"auction_started_at":1793818927,"tps":64.0,"last_paid_usdg":0.395556,"miner":"0xd0b86773de046546d5c1977385cf9a67b8cfeeb8","message":"","epoch":67,"swap_fee":0.01},
+      {"coin":"0x9c71cf5b8d39cce128e5bb0d84fe64d992038747","name":"BurstingBagel","symbol":"BAGEL","p_token":7.459284785597422e-07,"liq_usdg":7.06305,"r_usdg":3.531525,"treasury_usdg":4.867107,"eff_supply":10542663.999999998,"vol24_usdg":23.192373,"swaps24":5,"takeovers24":45,"init_price_usdg":1.0,"auction_started_at":1793818913,"tps":64.0,"last_paid_usdg":0.496038,"miner":"0xd0b86773de046546d5c1977385cf9a67b8cfeeb8","message":"","epoch":79,"swap_fee":0.01},
+      {"coin":"0x61bd43c1bda81573e3bcbada96aaa81690000a50","name":"Edge Fund","symbol":"EDGE","p_token":4.323173660991261e-07,"liq_usdg":5.414602,"r_usdg":2.707301,"treasury_usdg":4.713106,"eff_supply":11185544.0,"vol24_usdg":3.219909,"swaps24":24,"takeovers24":25,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":61,"swap_fee":0.01},
+      {"coin":"0x5c689324312fc8ef13b491e32774b4424aaf4e79","name":"test","symbol":"TEST","p_token":2.884e-07,"liq_usdg":0.40,"r_usdg":0.20,"treasury_usdg":0.0,"eff_supply":6174344.0,"vol24_usdg":11.154266,"swaps24":7,"takeovers24":26,"init_price_usdg":1.0,"auction_started_at":1793816940,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":34,"swap_fee":0.01},
+      {"coin":"0xd04d8f42f5a0d04b77f7806171400839f9701f9a","name":"Chrome Squirrel","symbol":"CHRM","p_token":1.8666121388029917e-07,"liq_usdg":0.273248,"r_usdg":0.136624,"treasury_usdg":0.0,"eff_supply":1819527.9999999995,"vol24_usdg":4.382108,"swaps24":3,"takeovers24":8,"init_price_usdg":1.0,"auction_started_at":1793817041,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":9,"swap_fee":0.02},
+      {"coin":"0x19e2b52fc1607786d0645e4ef21a2bd45ad71943","name":"WEN_VLAD?","symbol":"WEN","p_token":1.14383253620933e-08,"liq_usdg":0.2139,"r_usdg":0.10695,"treasury_usdg":0.0,"eff_supply":11141448.0,"vol24_usdg":0.453336,"swaps24":18,"takeovers24":20,"init_price_usdg":1.0,"auction_started_at":1793816946,"tps":64.0,"last_paid_usdg":0.039445,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":40,"swap_fee":0.02},
+      {"coin":"0x77ed45aba441bd651dba3356637a778362128425","name":"Diversified Donuts","symbol":"DD","p_token":3.1423506956090436e-08,"liq_usdg":0.209744,"r_usdg":0.104872,"treasury_usdg":0.232834,"eff_supply":5004188.81728,"vol24_usdg":1.180004,"swaps24":28,"takeovers24":19,"init_price_usdg":1.0,"auction_started_at":1793816940,"tps":32.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":43,"swap_fee":0.0269},
+      {"coin":"0x0cf333f0c8aeb8de92cc305f29d126ac95862d69","name":"DARN","symbol":"DARN","p_token":5.225e-06,"liq_usdg":0.20,"r_usdg":0.10,"treasury_usdg":0.0,"eff_supply":738907.5399999999,"vol24_usdg":1.636673,"swaps24":23,"takeovers24":23,"init_price_usdg":1.0,"auction_started_at":1793816940,"tps":3.97,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":59,"swap_fee":0.02},
+      {"coin":"0xccb7883f33ed8bd828a5439c2ae8b6ea0df807ea","name":"Cyfrin Audit","symbol":"CYFRIN","p_token":5.256834473987372e-08,"liq_usdg":0.145008,"r_usdg":0.072504,"treasury_usdg":0.0,"eff_supply":3914631.9999999995,"vol24_usdg":17.832211,"swaps24":3,"takeovers24":19,"init_price_usdg":1.0,"auction_started_at":1793816940,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":20,"swap_fee":0.01},
+      {"coin":"0xd0aa68e99bf3dc609a3a28c3773087c99e0d0a52","name":"CZ","symbol":"CZGLAZ","p_token":2.8571582032871544e-08,"liq_usdg":0.106904,"r_usdg":0.053452,"treasury_usdg":0.0,"eff_supply":9132424.0,"vol24_usdg":13.504184,"swaps24":10,"takeovers24":38,"init_price_usdg":1.0,"auction_started_at":1793818970,"tps":64.0,"last_paid_usdg":0.395834,"miner":"0xd0b86773de046546d5c1977385cf9a67b8cfeeb8","message":"","epoch":57,"swap_fee":0.01},
+      {"coin":"0xce3a83ab43c3235e2d500aaa7654a092f013004f","name":"stnkCAT","symbol":"STNCAT","p_token":1.790142863037342e-08,"liq_usdg":0.08462,"r_usdg":0.04231,"treasury_usdg":0.0252,"eff_supply":2599919.9999999995,"vol24_usdg":7.578024,"swaps24":6,"takeovers24":11,"init_price_usdg":1.0,"auction_started_at":1793816940,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":12,"swap_fee":0.03},
+      {"coin":"0x8bf5fa59a05a4e313350463fec76a1f74fe063fd","name":"HashBlokz","symbol":"HASH","p_token":2.4653605579871444e-09,"liq_usdg":0.031402,"r_usdg":0.015701,"treasury_usdg":0.0,"eff_supply":11062472.0,"vol24_usdg":0.432226,"swaps24":11,"takeovers24":19,"init_price_usdg":1.0,"auction_started_at":1793816946,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":47,"swap_fee":0.01},
+      {"coin":"0xe0ad9abea2473e0b766d316d332772ebd70fffa7","name":"AI-Mafia-FUND","symbol":"AIFUND","p_token":1.8478162456361931e-09,"liq_usdg":0.031254,"r_usdg":0.015627,"treasury_usdg":0.0,"eff_supply":10956360.0,"vol24_usdg":0.431948,"swaps24":11,"takeovers24":19,"init_price_usdg":1.0,"auction_started_at":1793816940,"tps":64.0,"last_paid_usdg":0.039445,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":31,"swap_fee":0.01},
+      {"coin":"0x5bb4128aa616e5d1f19140cb9f0acc1ad5d8f145","name":"Glazzy Dog","symbol":"GDOG","p_token":2.3514420718791838e-09,"liq_usdg":0.030668,"r_usdg":0.015334,"treasury_usdg":0.0,"eff_supply":11206984.0,"vol24_usdg":0.393336,"swaps24":13,"takeovers24":16,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":45,"swap_fee":0.01},
+      {"coin":"0xb8808261aedced4da90f68138eb6417d3f0c2212","name":"DONUT","symbol":"DONUT","p_token":1.849680061272542e-09,"liq_usdg":0.0272,"r_usdg":0.0136,"treasury_usdg":0.0,"eff_supply":10973384.0,"vol24_usdg":0.391949,"swaps24":15,"takeovers24":16,"init_price_usdg":1.0,"auction_started_at":1793816939,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":42,"swap_fee":0.05},
+      {"coin":"0x7d9ec8330e2f766d66336302091303deb8c02e43","name":"PEARL","symbol":"PRL","p_token":1.752799130450136e-09,"liq_usdg":0.026478,"r_usdg":0.013239,"treasury_usdg":0.0,"eff_supply":11156360.0,"vol24_usdg":0.393059,"swaps24":11,"takeovers24":16,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":35,"swap_fee":0.02},
+      {"coin":"0x8b12b8af8fc09797983f2389f8f61f5dbc2c10fa","name":"DOGE","symbol":"DOGE","p_token":1.6168368621945e-09,"liq_usdg":0.02543,"r_usdg":0.012715,"treasury_usdg":0.0,"eff_supply":11144648.0,"vol24_usdg":0.391671,"swaps24":15,"takeovers24":16,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":36,"swap_fee":0.02},
+      {"coin":"0xccd425ee5822dfa674b493b4609ca6112e86a138","name":"Test1","symbol":"VVVVVV","p_token":1.1695555948599856e-09,"liq_usdg":0.024346,"r_usdg":0.012173,"treasury_usdg":0.0,"eff_supply":32647181.05808021,"vol24_usdg":0.0,"swaps24":49,"takeovers24":44,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":44,"swap_fee":0.01},
+      {"coin":"0xaeb2232f7c5819211c165a4ae2d9560741e78602","name":"Lard Lad Donuts","symbol":"LLD","p_token":1.43628202570359e-09,"liq_usdg":0.023968,"r_usdg":0.011984,"treasury_usdg":0.0,"eff_supply":11181064.0,"vol24_usdg":0.418894,"swaps24":10,"takeovers24":17,"init_price_usdg":1.0,"auction_started_at":1793816945,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":33,"swap_fee":0.01},
+      {"coin":"0xf5fa3597a782e50e7dda821e8b3759188b8830cd","name":"GLAZMEDADDY","symbol":"GLAZDY","p_token":1.4361824558426933e-09,"liq_usdg":0.023968,"r_usdg":0.011984,"treasury_usdg":0.0,"eff_supply":11036040.0,"vol24_usdg":0.39056,"swaps24":12,"takeovers24":16,"init_price_usdg":1.0,"auction_started_at":1793816939,"tps":64.0,"last_paid_usdg":0.039723,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":32,"swap_fee":0.01},
+      {"coin":"0x9cf5e31e75dbeb8bc437a054b62e49d39e6fe171","name":"Mars Fund","symbol":"MARS","p_token":1.258490915928553e-09,"liq_usdg":0.022436,"r_usdg":0.011218,"treasury_usdg":0.0,"eff_supply":11073160.0,"vol24_usdg":1.211116,"swaps24":10,"takeovers24":16,"init_price_usdg":1.0,"auction_started_at":1793816946,"tps":64.0,"last_paid_usdg":0.039445,"miner":"0xc091cc903828866e4d0087621d92f619107afce2","message":"","epoch":32,"swap_fee":0.02}
+    ];
+
+    let currentFilter = 'all';
+    let testMinutes = 0;
+    let selectedCoinAddr = "0x5b69f1e127cb8cbe0b3880e8c1411185ae719e37";
+
+    function realizedDexUsdg(paperUsd, rUsdg, swapFee = 0.01) {
+      if (rUsdg <= 0 || paperUsd <= 0) return 0;
+      const eff = paperUsd * (1.0 - swapFee);
+      return (rUsdg * eff) / (rUsdg + eff);
+    }
+
+    // Unified On-Chain Profit at any replacement minute `m` (0 <= m <= 60)
+    function profitAtMinute(m, p_in, tps, p_token, r_usdg, fee, navPerToken) {
+      const nextStartPrice = Math.max(2.0 * p_in, 1.0);
+      const p_next_at_m = m >= 60 ? 0.0 : nextStartPrice * (1.0 - (m / 60.0));
+      const refund_usdg = 0.80 * p_next_at_m;
+
+      const sec = m * 60.0;
+      const paper_tok = tps * sec * p_token;
+      const real_tok = Math.max(realizedDexUsdg(paper_tok, r_usdg, fee), tps * sec * navPerToken);
+
+      const net_profit = refund_usdg + real_tok - p_in;
+      const roi = p_in > 0 ? (net_profit / p_in) * 100.0 : (net_profit > 0 ? 999.9 : 0.0);
+      return { p_next_at_m, refund_usdg, paper_tok, real_tok, net_profit, roi };
+    }
+
+    // Solves for the exact cutoff minute t_BE in [0, 60] where CashRefund(t) + RealTokens(t) == P_in
+    function findBreakEvenCutoffMinute(p_in, tps, p_token, r_usdg, fee, navPerToken) {
+      if (p_in <= 0) return 60.0;
+      const end60 = profitAtMinute(60, p_in, tps, p_token, r_usdg, fee, navPerToken);
+      if (end60.net_profit >= 0) return 60.0;
+
+      let lo = 0.0, hi = 60.0;
+      for (let i = 0; i < 30; i++) {
+        const mid = 0.5 * (lo + hi);
+        const pMid = profitAtMinute(mid, p_in, tps, p_token, r_usdg, fee, navPerToken);
+        if (pMid.net_profit >= 0) lo = mid;
+        else hi = mid;
+      }
+      return lo;
+    }
+
+    function computeMetrics(t, nowSec) {
+      const elapsed = Math.max(0, nowSec - t.auction_started_at);
+      const remSec = Math.max(0, 3600 - elapsed);
+      const p_in = elapsed >= 3600 ? 0.0 : (t.init_price_usdg * remSec / 3600.0);
+
+      const fee = (t.swap_fee && t.swap_fee > 0 && t.swap_fee <= 0.1) ? t.swap_fee : 0.01;
+      const navPerToken = (t.eff_supply > 0 && t.treasury_usdg > 0) ? (t.treasury_usdg / t.eff_supply) : 0;
+
+      const nextStartPrice = Math.max(2.0 * p_in, 1.0);
+      const priceDropPerMin = nextStartPrice / 60.0;
+      const cashRefundDropPerMin = (0.80 * nextStartPrice) / 60.0;
+      const tokenGain1Min = Math.max(
+        realizedDexUsdg(t.tps * 60.0 * t.p_token, t.r_usdg, fee),
+        t.tps * 60.0 * navPerToken
+      );
+
+      const p0 = profitAtMinute(0, p_in, t.tps, t.p_token, t.r_usdg, fee, navPerToken);
+      const p30 = profitAtMinute(30, p_in, t.tps, t.p_token, t.r_usdg, fee, navPerToken);
+      const p60 = profitAtMinute(60, p_in, t.tps, t.p_token, t.r_usdg, fee, navPerToken);
+      const pTest = profitAtMinute(testMinutes, p_in, t.tps, t.p_token, t.r_usdg, fee, navPerToken);
+
+      const beCutoffMin = findBreakEvenCutoffMinute(p_in, t.tps, t.p_token, t.r_usdg, fee, navPerToken);
+      const p_safe = p60.real_tok;
+
+      let waitSafeMin = 0;
+      if (p_in > p_safe && t.init_price_usdg > 0) {
+        const remAtSafe = 3600.0 * (p_safe / t.init_price_usdg);
+        waitSafeMin = Math.max(0, (remSec - remAtSafe) / 60.0);
+      }
+
+      let signalType = 'wait';
+      let signalLabel = `⏳ تسنى ${waitSafeMin.toFixed(1)} د`;
+      if (t.r_usdg < 0.50) {
+        signalType = 'illiquid';
+        signalLabel = '🔴 سيولة ميتة';
+      } else if (beCutoffMin >= 59.9 && p_safe > 0.02) {
+        signalType = 'zeroluck';
+        signalLabel = '🟢 رابح 60/60 د (بلا زهر!)';
+      } else if (beCutoffMin >= 35.0) {
+        signalType = 'mid';
+        signalLabel = `🟡 رابح حتى لـ ${beCutoffMin.toFixed(1)} د`;
+      }
+
+      return {
+        ...t,
+        elapsed,
+        p_in,
+        nextStartPrice,
+        priceDropPerMin,
+        cashRefundDropPerMin,
+        tokenGain1Min,
+        beCutoffMin,
+        p0,
+        p30,
+        p60,
+        pTest,
+        p_safe,
+        waitSafeMin,
+        signalType,
+        signalLabel
+      };
+    }
+
+    function updateTestMin(val) {
+      testMinutes = parseInt(val, 10) || 0;
+      document.getElementById('rngTestMin').value = testMinutes;
+      document.getElementById('lblTestMin').textContent = testMinutes === 0
+        ? "الدقيقة 0 (إلا حيدوك فـ البلاصة!)"
+        : (testMinutes === 60 ? "الدقيقة 60 (حتى واحد ما جا موراك!)" : `الدقيقة ${testMinutes}`);
+      renderDashboard();
+    }
+
+    function setFilter(flt) {
+      currentFilter = flt;
+      ['all', 'zeroluck', 'liq'].forEach(k => {
+        const btn = document.getElementById('flt-' + k);
+        if (!btn) return;
+        btn.className = (k === flt)
+          ? "px-3 py-1.5 rounded-lg font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer"
+          : "px-3 py-1.5 rounded-lg font-medium bg-[var(--background)] border border-[var(--border)] cursor-pointer";
+      });
+      renderDashboard();
+    }
+
+    function selectToken(addr) {
+      selectedCoinAddr = addr.toLowerCase();
+      renderDashboard();
+    }
+
+    function renderInspector(m) {
+      const box = document.getElementById('inspectorCard');
+      if (!box || !m) return;
+      const testColor = m.pTest.net_profit >= 0 ? 'text-emerald-500' : 'text-rose-500';
+      const testSign = m.pTest.net_profit >= 0 ? '+' : '';
+      const beText = m.beCutoffMin >= 59.9
+        ? "60 / 60 دقيقة (رابح فـ گاع الدقائق 100%!)"
+        : `من الدقيقة 0 حتى للدقيقة ${m.beCutoffMin.toFixed(1)} (قبل ما يغلب نزول الكاش)`;
+
+      box.innerHTML = `
+        <div class="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-2.5">
+          <div>
+            <span class="text-base font-bold">${m.name} (${m.symbol})</span>
+            <span class="text-xs px-2 py-0.5 rounded bg-[var(--background)] border border-[var(--border)] mr-2">${m.signalLabel}</span>
+          </div>
+          <a href="https://www.glazecorp.io/coins/${m.coin}/mine" target="_blank"
+             class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+            فتح المنجم ↗
+          </a>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-2.5">
+            <div class="text-[var(--muted-foreground)]">ميزان كل دقيقة بعد دخولك:</div>
+            <div class="text-rose-500 font-bold mt-0.5 mono-num">-$${m.cashRefundDropPerMin.toFixed(3)}/m (كاش)</div>
+            <div class="text-emerald-500 font-bold mono-num">+$${m.tokenGain1Min.toFixed(3)}/m (توكن)</div>
+          </div>
+
+          <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-2.5">
+            <div class="text-[var(--muted-foreground)]">نافذة التعادل (Break-Even):</div>
+            <div class="text-sm font-bold text-sky-500 mt-0.5 mono-num">0m &rarr; ${m.beCutoffMin.toFixed(1)}m</div>
+            <div class="text-[var(--muted-foreground)] mt-0.5">بدون توكن: <span class="mono-num">22.5m</span></div>
+          </div>
+
+          <div class="bg-[var(--background)] border border-[var(--border)] rounded-lg p-2.5">
+            <div class="text-[var(--muted-foreground)]">ربحك فـ الدقيقة ${testMinutes}:</div>
+            <div class="text-sm font-bold ${testColor} mt-0.5 mono-num">${testSign}$${m.pTest.net_profit.toFixed(2)} (${testSign}${m.pTest.roi.toFixed(0)}%)</div>
+            <div class="text-[var(--muted-foreground)] mt-0.5">كاش: <span class="mono-num">$${m.pTest.refund_usdg.toFixed(2)}</span> + توكن: <span class="mono-num">$${m.pTest.real_tok.toFixed(2)}</span></div>
+          </div>
+        </div>
+        <div class="text-xs text-[var(--muted-foreground)] mt-2 pt-2 border-t border-[var(--border)]">
+          ⚖️ <b>خلاصة التعادل لـ ${m.symbol}:</b> ${beText}
+        </div>
+      `;
+    }
+
+    function renderDashboard() {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const computed = TOKENS_DATA.map(t => computeMetrics(t, nowSec));
+
+      const inspected = computed.find(x => x.coin.toLowerCase() === selectedCoinAddr) || computed[0];
+      renderInspector(inspected);
+
+      const q = (document.getElementById('inpSearch').value || '').trim().toLowerCase();
+      let filtered = computed.filter(item => {
+        if (q && !item.symbol.toLowerCase().includes(q) && !item.name.toLowerCase().includes(q)) return false;
+        if (currentFilter === 'zeroluck') return item.signalType === 'zeroluck';
+        if (currentFilter === 'liq') return item.liq_usdg >= 5.0;
+        return true;
+      });
+
+      const sortMode = document.getElementById('selSort').value;
+      filtered.sort((a, b) => {
+        if (sortMode === 'be_window_desc') return (b.beCutoffMin - a.beCutoffMin) || (b.liq_usdg - a.liq_usdg);
+        if (sortMode === 'worst_desc') return b.p60.net_profit - a.p60.net_profit;
+        return b.liq_usdg - a.liq_usdg;
+      });
+
+      const tbody = document.getElementById('tokensTableBody');
+      tbody.innerHTML = filtered.map((m, idx) => {
+        const isSelected = m.coin.toLowerCase() === selectedCoinAddr;
+        const rowBg = isSelected ? 'bg-[var(--background)] font-medium' : 'hover:bg-[var(--background)]/60';
+
+        const p0Color = m.p0.net_profit >= 0 ? 'text-emerald-500 font-bold' : 'text-rose-500';
+        const p30Color = m.p30.net_profit >= 0 ? 'text-emerald-500 font-bold' : 'text-rose-500';
+        const p60Color = m.p60.net_profit >= 0 ? 'text-emerald-500 font-bold' : 'text-rose-500';
+        const beWinColor = m.beCutoffMin >= 59.9 ? 'text-emerald-500 font-bold' : (m.beCutoffMin >= 28 ? 'text-sky-500 font-bold' : 'text-amber-500 font-semibold');
+
+        let badgeClass = 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+        if (m.signalType === 'zeroluck') badgeClass = 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30 font-bold';
+        else if (m.signalType === 'illiquid') badgeClass = 'bg-rose-500/15 text-rose-500 border-rose-500/30';
+
+        return `
+          <tr onclick="selectToken('${m.coin}')" class="${rowBg} transition cursor-pointer">
+            <td class="py-3 px-3">
+              <div class="font-bold">${idx + 1}. ${m.symbol}</div>
+              <div class="text-[var(--muted-foreground)] text-xs truncate max-w-[120px]">${m.name}</div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="font-bold mono-num">$${m.p_in.toFixed(2)} USDG</div>
+              <div class="text-[var(--muted-foreground)] text-xs">الجديد: <span class="mono-num">$${m.nextStartPrice.toFixed(2)}</span></div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="font-semibold mono-num">$${m.liq_usdg.toFixed(2)}</div>
+              <div class="text-[var(--muted-foreground)] text-xs">كاش: <span class="mono-num">$${m.r_usdg.toFixed(2)}</span></div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="text-rose-500 mono-num font-semibold">-$${m.cashRefundDropPerMin.toFixed(3)}/د <span class="text-[var(--muted-foreground)] font-normal">(كاش)</span></div>
+              <div class="text-emerald-500 mono-num font-semibold">+$${m.tokenGain1Min.toFixed(3)}/د <span class="text-[var(--muted-foreground)] font-normal">(توكن)</span></div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="${beWinColor} mono-num">0m &rarr; ${m.beCutoffMin.toFixed(1)}m</div>
+              <div class="text-[var(--muted-foreground)] text-xs">
+                ${m.beCutoffMin >= 59.9 ? 'رابح طول الساعة 100%!' : `تعادل فـ الدقيقة ${m.beCutoffMin.toFixed(1)}`}
+              </div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="mono-num text-xs">
+                <span class="${p0Color}">0د: +$${m.p0.net_profit.toFixed(2)}</span> |
+                <span class="${p30Color}">30د: ${m.p30.net_profit >= 0 ? '+' : ''}$${m.p30.net_profit.toFixed(2)}</span>
+              </div>
+              <div class="mono-num text-xs mt-0.5">
+                <span class="${p60Color}">60د (أسوأ): ${m.p60.net_profit >= 0 ? '+' : ''}$${m.p60.net_profit.toFixed(2)}</span>
+              </div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="font-bold text-emerald-500 mono-num">&le; $${m.p_safe.toFixed(2)} USDG</div>
+              <div class="text-[var(--muted-foreground)] text-xs">لضمان 60/60 دقيقة</div>
+            </td>
+
+            <td class="py-3 px-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="px-2 py-1 rounded border text-xs ${badgeClass}">${m.signalLabel}</span>
+                <a href="https://www.glazecorp.io/coins/${m.coin}/mine" target="_blank" onclick="event.stopPropagation()"
+                   class="px-2.5 py-1 rounded bg-[var(--background)] hover:bg-[var(--primary)] hover:text-[var(--primary-foreground)] border border-[var(--border)] text-xs font-semibold">
+                  Mine ↗
+                </a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function syncFromNetwork() {
+      const statusEl = document.getElementById('syncStatus');
+      try {
+        const rApi = await fetch(API_URL, { cache: "no-store" });
+        if (rApi.ok) {
+          const jApi = await rApi.json();
+          if (jApi.tokens && jApi.tokens.length > 0) {
+            TOKENS_DATA = jApi.tokens;
+            document.getElementById('lastSyncTime').textContent = new Date().toTimeString().split(' ')[0];
+            statusEl.textContent = "LIVE • On-Chain";
+            renderDashboard();
+            return;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback: Direct Goldsky Subgraph query from browser
+      try {
+        const query = {
+          query: `{
+            fundInstances(first: 100, orderBy: liquidityUsdgRaw, orderDirection: desc) {
+              id name symbol coin swapFee initialTpsRaw priceUsdgWad liquidityUsdgRaw
+              pool { quoteIsUsdg reserveBaseRaw reserveQuoteRaw }
+              miningSlots { epoch initialPriceRaw auctionStartedAt tpsRaw lastPriceRaw }
+            }
+          }`
+        };
+        const rSg = await fetch(SUBGRAPH_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(query)
+        });
+        if (rSg.ok) {
+          const jSg = await rSg.json();
+          const funds = (jSg.data && jSg.data.fundInstances) || [];
+          const byAddr = {};
+          TOKENS_DATA.forEach(x => { byAddr[x.coin.toLowerCase()] = x; });
+          funds.forEach(f => {
+            const addr = (f.coin || f.id || '').toLowerCase();
+            const slot = (f.miningSlots && f.miningSlots[0]) || {};
+            const pool = f.pool || {};
+            const prev = byAddr[addr] || { coin: f.coin || f.id, name: f.name, symbol: f.symbol, liq_usdg: 0, r_usdg: 0, treasury_usdg: 0, eff_supply: 0 };
+            if (slot.initialPriceRaw !== undefined) prev.init_price_usdg = Number(slot.initialPriceRaw) / 1e6;
+            if (slot.auctionStartedAt !== undefined) prev.auction_started_at = Number(slot.auctionStartedAt);
+            if (slot.tpsRaw !== undefined && Number(slot.tpsRaw) > 0) prev.tps = Number(slot.tpsRaw) / 1e18;
+            const rBase = Number(pool.reserveBaseRaw || 0) / 1e18;
+            const rQuote = Number(pool.reserveQuoteRaw || 0) / 1e6;
+            if (pool.quoteIsUsdg && rBase > 0 && rQuote > 0) {
+              prev.p_token = rQuote / rBase;
+              prev.liq_usdg = rQuote * 2.0;
+              prev.r_usdg = rQuote;
+            }
+            byAddr[addr] = prev;
+          });
+          document.getElementById('lastSyncTime').textContent = new Date().toTimeString().split(' ')[0];
+          statusEl.textContent = "LIVE • Subgraph";
+        }
+      } catch (_) {
+        statusEl.textContent = "LIVE • Clock Mode";
+      }
+      renderDashboard();
+    }
+
+    renderDashboard();
+    syncFromNetwork();
+    setInterval(renderDashboard, 1000);
+    setInterval(syncFromNetwork, 5000);
+  </script>
+</body>
+</html>
